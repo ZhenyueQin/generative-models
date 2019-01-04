@@ -3,14 +3,17 @@ import torch.nn.functional as nn
 import torch.autograd as autograd
 import torch.optim as optim
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+# import matplotlib.pyplot as plt
+# import matplotlib.gridspec as gridspec
 import os
 from torch.autograd import Variable
 from tensorflow.examples.tutorials.mnist import input_data
+# from numpy_plotter import plot_a_numpy_array
+from general_methods import get_current_time
 
 
 mnist = input_data.read_data_sets('../../MNIST_data', one_hot=True)
+
 mb_size = 64
 Z_dim = 100
 X_dim = mnist.train.images.shape[1]
@@ -72,8 +75,12 @@ params = [Wxh, bxh, Whz_mu, bhz_mu, Whz_var, bhz_var,
 
 solver = optim.Adam(params, lr=lr)
 
+running_time = get_current_time()
+
 for it in range(100000):
-    X, _ = mnist.train.next_batch(mb_size)
+    X, _ = mnist.train.next_batch(mb_size, shuffle=True)
+    print('X: ', X.shape)
+    # plot_a_numpy_array(X[0])
     X = Variable(torch.from_numpy(X))
 
     # Forward
@@ -104,21 +111,25 @@ for it in range(100000):
 
         samples = P(z).data.numpy()[:16]
 
-        fig = plt.figure(figsize=(4, 4))
-        gs = gridspec.GridSpec(4, 4)
-        gs.update(wspace=0.05, hspace=0.05)
+        if not os.path.exists('original_np_outs/' + running_time + '/'):
+            os.makedirs('original_np_outs/' + running_time + '/')
 
-        for i, sample in enumerate(samples):
-            ax = plt.subplot(gs[i])
-            plt.axis('off')
-            ax.set_xticklabels([])
-            ax.set_yticklabels([])
-            ax.set_aspect('equal')
-            plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+        samples_name = 'original_np_outs/' + running_time + '/' + 'original_samples_' + str(it) + '.out'
+        np.savetxt(samples_name, samples, delimiter=',')
 
-        if not os.path.exists('out/'):
-            os.makedirs('out/')
+if not os.path.exists('original_latent_np_outs/' + running_time + '/'):
+    os.makedirs('original_latent_np_outs/' + running_time + '/')
 
-        plt.savefig('out/{}.png'.format(str(c).zfill(3)), bbox_inches='tight')
-        c += 1
-        plt.close(fig)
+for it in range(100):
+    Y, _ = mnist.test.next_batch(64, shuffle=False)
+    Y = Variable(torch.from_numpy(Y))
+    z_mu, z_var = Q(Y)
+    z = sample_z(z_mu, z_var)
+
+    z_np = z.data.numpy()
+
+    # print('z shape: ', z_np.shape)
+
+    latent_z_name = 'original_latent_np_outs/' + running_time + '/' + 'latent_z_' + str(it) + '.out'
+    np.savetxt(latent_z_name, z_np, delimiter=',')
+
